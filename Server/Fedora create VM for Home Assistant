@@ -1,0 +1,16 @@
+    # Stop and remove existing VM
+    sudo virsh destroy homeassistant
+    sudo virsh undefine homeassistant --nvram
+
+# Recreate with direct network attachment to eno1
+sudo virt-install \
+  --name homeassistant \
+  --memory 4096 \
+  --vcpus 2 \
+  --disk /var/lib/libvirt/images/haos_ova-16.2.qcow2,format=qcow2,bus=sata \
+  --import \
+  --os-variant generic \
+  --network type=direct,source=eno1,source_mode=bridge,model=virtio \
+  --graphics vnc \
+  --boot uefi \
+  --noautoconsole
