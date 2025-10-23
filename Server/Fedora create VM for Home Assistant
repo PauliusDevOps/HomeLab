@@ -1,4 +1,13 @@
-    # Stop and remove existing VM
+
+    cd /var/lib/libvirt/images/
+    sudo wget https://github.com/home-assistant/operating-system/releases/download/11.2/haos_ova-16.2.qcow2.xz
+    sudo unxz haos_ova-16.2.qcow2.xz
+
+
+
+
+
+   # Stop and remove existing VM
     sudo virsh destroy homeassistant
     sudo virsh undefine homeassistant --nvram
 
