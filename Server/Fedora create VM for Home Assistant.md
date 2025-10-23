@@ -1,11 +1,9 @@
-Here’s a well-formatted **`README.md`** version of your instructions with clear explanations for each step:
-
 ---
 
 # 🏠 Home Assistant Installation via KVM/QEMU (Libvirt)
 
 This guide explains how to install **Home Assistant OS** on a Linux system using **KVM/QEMU (libvirt)**.
-We’ll download the official Home Assistant QCOW2 image, remove any existing VM, and create a new one with a direct network bridge.
+We’ll download the official Home Assistant QCOW2 image, remove any existing VM, create a new one, and optionally attach USB devices (e.g., Zigbee/Z-Wave dongles, cameras).
 
 ---
 
@@ -16,6 +14,7 @@ Ensure you have the following installed on your system:
 * `libvirt` and `qemu`
 * `virt-manager` *(optional, for GUI management)*
 * `wget`, `unxz`
+* `cockpit-machines` *(optional, for USB management via web UI)*
 
 > 💡 You must have root or `sudo` privileges to manage VMs with libvirt.
 
@@ -88,18 +87,113 @@ sudo virt-install \
 
 #### 🔍 Explanation of options:
 
-| Option                                                              | Description                                                                                                      |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `--name homeassistant`                                              | Names the VM “homeassistant”.                                                                                    |
-| `--memory 4096`                                                     | Allocates 4 GB of RAM.                                                                                           |
-| `--vcpus 2`                                                         | Assigns 2 virtual CPUs.                                                                                          |
-| `--disk`                                                            | Specifies the disk image location and settings.                                                                  |
-| `--import`                                                          | Uses an existing disk image instead of installing from ISO.                                                      |
-| `--os-variant generic`                                              | Generic OS type for compatibility.                                                                               |
-| `--network type=direct,source=eno1,source_mode=bridge,model=virtio` | Connects the VM directly to the host’s physical NIC (`eno1`) using a bridged connection for full network access. |
-| `--graphics vnc`                                                    | Enables VNC console access.                                                                                      |
-| `--boot uefi`                                                       | Boots the VM using UEFI firmware.                                                                                |
-| `--noautoconsole`                                                   | Prevents automatic console attachment.                                                                           |
+| Option                                                              | Description                                                                           |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `--name homeassistant`                                              | Names the VM “homeassistant”.                                                         |
+| `--memory 4096`                                                     | Allocates 4 GB of RAM.                                                                |
+| `--vcpus 2`                                                         | Assigns 2 virtual CPUs.                                                               |
+| `--disk`                                                            | Specifies the disk image location and settings.                                       |
+| `--import`                                                          | Uses an existing disk image instead of installing from ISO.                           |
+| `--os-variant generic`                                              | Generic OS type for compatibility.                                                    |
+| `--network type=direct,source=eno1,source_mode=bridge,model=virtio` | Connects the VM directly to the host’s physical NIC (`eno1`) for full network access. |
+| `--graphics vnc`                                                    | Enables VNC console access.                                                           |
+| `--boot uefi`                                                       | Boots the VM using UEFI firmware.                                                     |
+| `--noautoconsole`                                                   | Prevents automatic console attachment.                                                |
+
+---
+
+## 🧲 Add USB Devices to Home Assistant VM
+
+Home Assistant often requires access to USB devices such as Zigbee/Z-Wave dongles or cameras.
+You can attach them using **Cockpit (GUI)** or **command-line**.
+
+---
+
+### ⚙️ Method 1: Using Cockpit (Easiest)
+
+1. **Open Cockpit Machines**
+
+   * Access Cockpit in your browser:
+     `https://<your_server_ip>:9090`
+   * Go to **Virtual Machines → homeassistant**
+
+2. **Add USB Devices**
+
+   * Click **Add Device → USB Device**
+   * Select the devices you want to attach (e.g., your Zigbee stick, camera)
+   * Check **Persistent** to make sure they stay attached after reboots.
+
+---
+
+### 🖥️ Method 2: Command Line (Manual)
+
+#### Step 1: List your USB devices
+
+```bash
+lsusb
+```
+
+Example output:
+
+```
+Bus 001 Device 002: ID 10c4:ea60 Silicon Labs CP210x UART Bridge
+Bus 001 Device 003: ID 17ef:482f Lenovo Lenovo 500 RGB Camera
+```
+
+Here are the details for our two USB devices:
+
+| Device              | Description                     | Vendor ID | Product ID |
+| ------------------- | ------------------------------- | --------- | ---------- |
+| Zigbee/Z-Wave stick | Silicon Labs CP210x UART Bridge | `10c4`    | `ea60`     |
+| Camera              | Lenovo 500 RGB Camera           | `17ef`    | `482f`     |
+
+---
+
+#### Step 2: Attach USB devices to the running VM
+
+##### Attach Silicon Labs CP210x (Zigbee/Z-Wave stick)
+
+```bash
+sudo virsh attach-device homeassistant --file /dev/stdin --persistent <<EOF
+<hostdev mode='subsystem' type='usb' managed='yes'>
+  <source>
+    <vendor id='0x10c4'/>
+    <product id='0xea60'/>
+  </source>
+</hostdev>
+EOF
+```
+
+##### Attach Lenovo Camera
+
+```bash
+sudo virsh attach-device homeassistant --file /dev/stdin --persistent <<EOF
+<hostdev mode='subsystem' type='usb' managed='yes'>
+  <source>
+    <vendor id='0x17ef'/>
+    <product id='0x482f'/>
+  </source>
+</hostdev>
+EOF
+```
+
+> ✅ The `--persistent` flag ensures the devices stay attached even after a VM reboot.
+
+---
+
+### 🔍 Step 3: Verify in Home Assistant
+
+1. Open Home Assistant → **Settings → System → Hardware**
+2. Click **All Hardware**
+3. You should see both devices listed.
+
+For the **CP210x** device, it will usually appear as:
+
+```
+/dev/ttyUSB0
+```
+
+You can use this path when setting up your **Zigbee** or **Z-Wave** integrations.
 
 ---
 
@@ -107,7 +201,8 @@ sudo virt-install \
 
 Once the VM is running:
 
-* Access Home Assistant via its web interface (usually at `http://<your_host_ip>:8123`).
+* Access Home Assistant via your browser:
+  **http://<your_host_ip>:8123**
 * Manage the VM using:
 
   ```bash
@@ -120,13 +215,6 @@ Once the VM is running:
 
 ## 🧹 Optional: Verify Network Connectivity
 
-Ensure your host’s interface `eno1` supports direct bridging.
-If you encounter network issues, you may need to configure a proper **bridge interface** (e.g. `br0`) in `/etc/netplan/` or NetworkManager.
+If the direct network connection fails, you may need to configure a **bridge interface** (e.g., `br0`) in your host network settings using `/etc/netplan/` or NetworkManager.
 
----
-
-
-
----
-
-Would you like me to include a **"troubleshooting"** section (e.g. VNC connection tips, bridge errors, etc.) at the bottom?
+Would you like me to add a **“Persistent USB Configuration”** section (to ensure USBs auto-reattach after host reboot)?
