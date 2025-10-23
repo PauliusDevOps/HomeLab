@@ -125,8 +125,7 @@ If you encounter network issues, you may need to configure a proper **bridge int
 
 ---
 
-**Author:** *Your Name*
-**Based on:** [Home Assistant OS Releases](https://github.com/home-assistant/operating-system/releases)
+
 
 ---
 
